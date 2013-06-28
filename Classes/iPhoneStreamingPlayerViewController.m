@@ -29,9 +29,39 @@
 
 @implementation iPhoneStreamingPlayerViewController
 
+// Creates the volume slider, sets the default path for the local file and
+// creates the streamer immediately if we already have a file at the local
+// location.
 //
-// setButtonImageNamed:
-//
+- (void)viewDidLoad
+{
+	[super viewDidLoad];
+	
+	MPVolumeView *volumeView = [[[MPVolumeView alloc] initWithFrame:volumeSlider.bounds] autorelease];
+	[volumeSlider addSubview:volumeView];
+	[volumeView sizeToFit];
+	
+	[self setButtonImageNamed:@"playbutton.png"];
+    [self createStreamer];
+}
+
+- (void)viewWillAppear:(BOOL)animated
+{
+    [[NSNotificationCenter defaultCenter]
+     addObserver:self
+     selector:@selector(playbackStateChanged:)
+     name:ASStatusChangedNotification
+     object:nil];
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+    [[NSNotificationCenter defaultCenter]
+     removeObserver:self
+     name:ASStatusChangedNotification
+     object:nil];
+}
+
 // Used to change the image on the playbutton. This method exists for
 // the purpose of inter-thread invocation because
 // the observeValueForKeyPath:ofObject:change:context: method is invoked
@@ -60,41 +90,16 @@
 	}
 }
 
-//
-// destroyStreamer
-//
-// Removes the streamer, the UI update timer and the change notification
-//
-- (void)destroyStreamer
-{
-	if (streamer)
-	{
-		[[NSNotificationCenter defaultCenter]
-			removeObserver:self
-			name:ASStatusChangedNotification
-			object:streamer];
-		[progressUpdateTimer invalidate];
-		progressUpdateTimer = nil;
-		
-		[streamer stop];
-		[streamer release];
-		streamer = nil;
-	}
-}
-
-//
-// createStreamer
-//
 // Creates or recreates the AudioStreamer object.
-//
 - (void)createStreamer
 {
-	if (streamer)
+	if (streamer != nil)
 	{
 		return;
 	}
 
-	[self destroyStreamer];
+//    downloadSourceField.text = @"http://bk.mchang.cn:81/api/yyfile/file/v1/downloadfile/voice/100230002/2013/6/8/11/201306081154348898302.mp3/djfile";
+    downloadSourceField.text = @"http://lianzidi.com/COFFdD0xMzcyMzIwODI4Jmk9MTEyLjY0LjEyNy4yMjYmdT1Tb25ncy92MS9mYWludFFDLzdjLzM4ZmJiYTZmZDAzNzg0NTM3NGYwYjBjNmYwYjQ0YTdjLm1wMyZtPTQ4MGY0YmMzN2ZjMTYzNzhlYTUzOGE0MzRhYTYzNzJiJnY9bGlzdGVuJm49xOOyu9TZsK7O0iZzPbLM5fsmcD1u.mp3";
 	
 	NSString *escapedValue =
 		[(NSString *)CFURLCreateStringByAddingPercentEscapes(
@@ -106,7 +111,8 @@
 		autorelease];
 
 	NSURL *url = [NSURL URLWithString:escapedValue];
-	streamer = [[AudioStreamer alloc] initWithURL:url];
+	streamer = [AudioStreamer sharedInstance];
+    [streamer playURL:url];
 	
 	progressUpdateTimer =
 		[NSTimer
@@ -115,29 +121,7 @@
 			selector:@selector(updateProgress:)
 			userInfo:nil
 			repeats:YES];
-	[[NSNotificationCenter defaultCenter]
-		addObserver:self
-		selector:@selector(playbackStateChanged:)
-		name:ASStatusChangedNotification
-		object:streamer];
-}
-
-//
-// viewDidLoad
-//
-// Creates the volume slider, sets the default path for the local file and
-// creates the streamer immediately if we already have a file at the local
-// location.
-//
-- (void)viewDidLoad
-{
-	[super viewDidLoad];
 	
-	MPVolumeView *volumeView = [[[MPVolumeView alloc] initWithFrame:volumeSlider.bounds] autorelease];
-	[volumeSlider addSubview:volumeView];
-	[volumeView sizeToFit];
-	
-	[self setButtonImageNamed:@"playbutton.png"];
 }
 
 //
@@ -204,13 +188,12 @@
 	{
 		[downloadSourceField resignFirstResponder];
 		
-		[self createStreamer];
 		[self setButtonImageNamed:@"loadingbutton.png"];
-		[streamer start];
+		[streamer play];
 	}
 	else
 	{
-		[streamer stop];
+		[streamer pause];
 	}
 }
 
@@ -249,7 +232,6 @@
 	}
 	else if ([streamer isIdle])
 	{
-		[self destroyStreamer];
 		[self setButtonImageNamed:@"playbutton.png"];
 	}
 }
@@ -311,7 +293,6 @@
 //
 - (void)dealloc
 {
-	[self destroyStreamer];
 	if (progressUpdateTimer)
 	{
 		[progressUpdateTimer invalidate];

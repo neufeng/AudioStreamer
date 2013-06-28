@@ -20,12 +20,8 @@
 //  3. This notice may not be removed or altered from any source
 //     distribution.
 //
-
-#if TARGET_OS_IPHONE			
+			
 #import <UIKit/UIKit.h>
-#else
-#import <Cocoa/Cocoa.h>
-#endif // TARGET_OS_IPHONE
 
 #include <pthread.h>
 #include <AudioToolbox/AudioToolbox.h>
@@ -165,9 +161,11 @@ extern NSString * const ASStatusChangedNotification;
 								// time)
 	double packetDuration;		// sample rate times frames per packet
 	double lastProgress;		// last calculated progress point
-#if TARGET_OS_IPHONE
+
 	BOOL pausedByInterruption;
-#endif
+    
+    NSOutputStream *outputStream;
+    NSString *cacheDirectory, *tempDirectory;
 }
 
 @property AudioStreamerErrorCode errorCode;
@@ -178,12 +176,14 @@ extern NSString * const ASStatusChangedNotification;
 @property (readonly) NSDictionary *httpHeaders;
 @property (copy,readwrite) NSString *fileExtension;
 
-- (id)initWithURL:(NSURL *)aURL;
-- (void)start;
++ (AudioStreamer *)sharedInstance;
+
+//- (id)initWithURL:(NSURL *)aURL;
+- (void)playURL:(NSURL *)aURL;
+- (void)play;
 - (void)stop;
 - (void)pause;
 - (BOOL)isPlaying;
-- (BOOL)isPaused;
 - (BOOL)isWaiting;
 - (BOOL)isIdle;
 - (void)seekToTime:(double)newSeekTime;
